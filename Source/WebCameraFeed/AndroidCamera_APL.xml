@@ -1,0 +1,677 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--Android Camera plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+    <buildGradleAdditions>
+        <insert>
+            repositories {
+                mavenCentral()
+                maven {
+                           url = "https://maven.pkg.github.com/SariskaIO/maven-repository"
+                           credentials {
+                               username = "SariskaIO"
+                               password = "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"
+                           }
+                       }
+            }
+            
+            android {
+                        compileOptions {
+                                sourceCompatibility 1.8
+                                targetCompatibility 1.8
+                        }
+            }
+            dependencies {
+                implementation 'io.sariska:sariska-media-transport:5.2.4'
+            }
+            
+        </insert>
+    </buildGradleAdditions>
+    <!-- init section is always evaluated once per architecture -->
+    <init>
+        <log text="AndroidCamera init"/>
+    </init>
+    
+    
+    <androidManifestUpdates>
+        <addPermission android:name="android.permission.CAMERA"/>
+        <addFeature android:name="android.hardware.camera"/>
+        <addFeature android:name="android.hardware.camera.front" android:required="false"/>
+        <addFeature android:name="android.hardware.camera.autofocus"/>
+        <addPermission android:name="android.permission.INTERNET" />
+        <addPermission android:name="android.permission.ACCESS_NETWORK_STATE" />
+        <addPermission android:name="android.permission.BLUETOOTH" />
+        <addPermission android:name="android.permission.CAMERA" />
+        <addPermission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+        <addPermission android:name="android.permission.RECORD_AUDIO" />
+        <addPermission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+        <addPermission android:name="android.permission.WAKE_LOCK" />
+        
+        <addElements tag="application">
+            <provider
+                    android:name="com.facebook.react.modules.blob.BlobProvider"
+                    android:authorities="@stringsariska/blob_provider_authority"
+                    android:exported="false"
+                    />
+        </addElements>
+    </androidManifestUpdates>
+
+<!--    <gradleProperties>-->
+<!--        <insert>-->
+<!--            android.useAndroidX=true-->
+<!--            android.enableJetifier=true-->
+<!--        </insert>-->
+<!--    </gradleProperties>-->
+    
+    <resourceCopies>
+                  <copyFile src="$S(ProjectDir)/Plugins/WebCameraFeed/Source/WebCameraFeed/stringsariskas.xml"
+                            dst="$S(BuildDir)/res/values/stringsariskas.xml" />
+    </resourceCopies>
+    
+    <!-- optional additions to the GameActivity imports in GameActivity.java -->
+    <gameActivityImportAdditions>
+        <insert>
+
+import android.os.Build;
+import java.lang.reflect.Method;
+import android.widget.Toast;
+import android.hardware.Camera;
+import android.hardware.Camera.Size;
+import android.hardware.Camera.CameraInfo;
+import android.hardware.Camera.Parameters;
+import android.hardware.Camera.PreviewCallback;
+import android.graphics.SurfaceTexture;
+import android.graphics.ImageFormat;
+import android.graphics.PixelFormat;
+import java.util.List;
+import java.io.IOException;
+import android.util.Log;
+import android.Manifest;
+import android.support.annotation.NonNull;
+import android.graphics.PointF;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.app.ActivityCompat;
+
+// Added Imports
+
+import android.app.Application;
+import io.sariska.sdk.Connection;
+import io.sariska.sdk.Conference;
+import io.sariska.sdk.JitsiRemoteTrack;
+import io.sariska.sdk.SariskaMediaTransport;
+import io.sariska.sdk.JitsiLocalTrack;
+import com.oney.WebRTCModule.WebRTCView;
+
+import static android.opengl.GLES20.GL_RGBA;
+import static android.opengl.GLES20.GL_TEXTURE_2D;
+import static android.opengl.GLES20.GL_UNSIGNED_BYTE;
+import static com.facebook.react.bridge.UiThreadUtil.runOnUiThread;
+import android.app.Activity;
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.opengl.EGL14;
+import android.opengl.EGLConfig;
+import android.opengl.EGLContext;
+import android.opengl.EGLDisplay;
+import android.opengl.EGLSurface;
+import android.opengl.GLES11Ext;
+import android.opengl.GLES20;
+import android.opengl.GLUtils;
+import android.os.Build;
+import android.os.Bundle;
+import android.renderscript.Allocation;
+import android.renderscript.Element;
+import android.renderscript.RenderScript;
+import android.renderscript.ScriptIntrinsicYuvToRGB;
+import android.renderscript.Type;
+import androidx.annotation.RequiresApi;
+import androidx.core.app.ActivityCompat;
+import com.oney.WebRTCModule.WebRTCView;
+import org.webrtc.GlUtil;
+import org.webrtc.VideoFrame;
+import org.webrtc.VideoSink;
+import org.webrtc.VideoTrack;
+import java.nio.ByteBuffer;
+import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import io.sariska.sdk.Connection;
+import io.sariska.sdk.Conference;
+import io.sariska.sdk.JitsiLocalTrack;
+import io.sariska.sdk.JitsiRemoteTrack;
+import io.sariska.sdk.SariskaMediaTransport;
+
+        </insert>
+    </gameActivityImportAdditions>
+    
+    <gameActivityClassAdditions>
+        <insert>
+            
+            private int textureIDSariska;
+            private Conference conference;
+            private Connection connection;
+            private WebRTCView remoteView;
+            private WebRTCView localView;
+            private List&lt;JitsiLocalTrack&gt; localTracks;
+            private boolean weHaveLocalTracks = false;
+            private final ExecutorService mRenderThreadLocal = Executors.newSingleThreadExecutor();
+                private final ExecutorService mRenderThreadRemote = Executors.newFixedThreadPool(2);
+                private volatile EGLContext mSharedEglContext;
+                private volatile EGLConfig mSharedEglConfig;
+                private int mTextureID;
+                private int mRemoteTextureId;
+                private int mTextureWidth;
+                private int mTextureHeight;
+                private String token;
+                private String roomName;
+                private static final String TAG = "JavaPlugin";
+            
+                private VideoTrack localVideoTrack;
+                private VideoTrack remoteVideoTrack;
+                private Context context;
+                
+                private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
+                   private EGLContext mEglContext = EGL14.EGL_NO_CONTEXT;
+                   private EGLSurface mEglSurface = EGL14.EGL_NO_SURFACE;
+
+
+            
+            String[] PERMISSIONS = {
+                        android.Manifest.permission.CAMERA,
+                        android.Manifest.permission.RECORD_AUDIO
+                };
+            
+            int PERMISSION_ALL = 1;
+                
+            
+            public void setupLocalStream() {
+                    Bundle options = new Bundle();
+                    options.putBoolean("audio", true);
+                    options.putBoolean("video", true);
+                    options.putInt("resolution", 360);  // 180, 240, 360, 720, 1080
+                    SariskaMediaTransport.createLocalTracks(options, tracks -> {
+                        runOnUiThread(() -> {
+                            //localTracks = tracks;
+                        });
+                    });
+                }
+                
+                public boolean hasPermissions(GameActivity context, String... permissions) {
+                            for (String permission : permissions) {
+                                if (ActivityCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED) {
+                                    return false;
+                                }
+                            }
+                        return true;
+                }
+                
+                public void createConference() {
+                System.out.println("We are in createConference");
+                
+                                conference = connection.initJitsiConference();
+
+                                conference.addEventListener("CONFERENCE_JOINED", () -> {
+                                    
+                                });
+
+                                conference.addEventListener("DOMINANT_SPEAKER_CHANGED", p -> {
+                                    String id = (String) p;
+                                    conference.selectParticipant(id);
+                                });
+                                conference.addEventListener("CONFERENCE_LEFT", () -> {
+                                });
+
+                                conference.addEventListener("TRACK_ADDED", p -> {
+                                    JitsiRemoteTrack track = (JitsiRemoteTrack) p;
+                                    runOnUiThread(() -> {
+                                        if (track.getType().equals("video")) {
+                                            //Do nothing for now
+                                        }
+                                    });
+                                });
+
+                                conference.addEventListener("TRACK_REMOVED", p -> {
+                                    JitsiRemoteTrack track = (JitsiRemoteTrack) p;
+                                    runOnUiThread(() -> {
+                                        //
+                                    });
+                                });
+                                
+                                conference.join();
+                                System.out.println("We are past createConference");
+                }
+                
+                public void setupOpenGL()
+                    {
+                        //Get eglcontext and egldisplay of the unity thread
+                        mSharedEglContext = EGL14.eglGetCurrentContext();
+                        if (mSharedEglContext == EGL14.EGL_NO_CONTEXT) {
+                            
+                        }
+                        EGLDisplay sharedEglDisplay = EGL14.eglGetCurrentDisplay();
+                        if (sharedEglDisplay == EGL14.EGL_NO_DISPLAY) {
+                           
+                        }
+
+                        //Gets the eglconfig of the unity drawing thread
+                        int[] numEglConfigs = new int[1];
+                        EGLConfig[] eglConfigs = new EGLConfig[1];
+                        if (!EGL14.eglGetConfigs(sharedEglDisplay, eglConfigs, 0,
+                                eglConfigs.length,numEglConfigs, 0)) {
+                            
+                        }
+
+                        mSharedEglConfig = eglConfigs[0];
+                        mRenderThreadLocal.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                //Java thread initializes OpenGL environment
+                                try {
+                                    initOpenGL();
+                                } catch (Exception e) {
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+
+                        mRenderThreadRemote.execute(new Runnable() {
+                            @Override
+                            public void run() {
+                                try{
+                                    initOpenGL();
+                                }catch (Exception e){
+                                    e.printStackTrace();
+                                }
+                            }
+                        });
+                    }
+                    
+                    private void initOpenGL() throws Exception {
+                           mEGLDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
+                           if (mEGLDisplay == EGL14.EGL_NO_DISPLAY) {
+                               
+                           }
+                           int[] version = new int[2];
+                           if (!EGL14.eglInitialize(mEGLDisplay, version, 0, version, 1)) {
+                               
+                           }
+                           int[] eglContextAttribList = new int[]{
+                                   EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, // the version should be consistent with that used by unity
+                                   EGL14.EGL_NONE
+                           };
+
+                           //Pass eglcontext and eglconfig of unity thread as parameters to eglcreatecontext,
+                           //Create the eglcontext of the java thread, so that two threads can share the eglcontext
+                           mEglContext = EGL14.eglCreateContext(
+                                   mEGLDisplay, mSharedEglConfig, mSharedEglContext,
+                                   eglContextAttribList, 0);
+                           if (mEglContext == EGL14.EGL_NO_CONTEXT) {
+                              
+                           }
+
+                           int[] surfaceAttribList = {
+                                   EGL14.EGL_WIDTH, 64,
+                                   EGL14.EGL_HEIGHT, 64,
+                                   EGL14.EGL_NONE
+                           };
+
+                           //The java thread does not actually paint, so it creates a pbuffersurface instead of a windowsurface
+                           //Pass the eglconfig of the unity thread as a parameter to eglcreatepuffersurface
+                           //Create eglsurface for java thread
+                           mEglSurface = EGL14.eglCreatePbufferSurface(mEGLDisplay, mSharedEglConfig, surfaceAttribList, 0);
+                           if (mEglSurface == EGL14.EGL_NO_SURFACE) {
+                               
+                           }
+                           if (!EGL14.eglMakeCurrent(mEGLDisplay, mEglSurface, mEglSurface, mEglContext)) {
+                               try{
+                                   EGL14.eglMakeCurrent(mEGLDisplay, mEglSurface, mEglSurface, mEglContext);
+                               }catch (Exception e){
+                                   throw new Exception(e);
+                               }
+                           }
+                           GLES20.glFlush();
+                       }
+                       
+                       public void updateBufferLocalStream(int textureIdLocal, ByteBuffer buffer, int width, int height){
+                               mRenderThreadLocal.execute(new Runnable() {
+                                   @Override
+                                   public void run() {
+                                       GLES20.glBindTexture(GL_TEXTURE_2D, textureIdLocal);
+                                       GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
+                                       GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
+                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
+                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
+                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
+                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
+                                       GLES20.glTexImage2D(GL_TEXTURE_2D,0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+                                       GlUtil.checkNoGLES2Error("EglRenderer.notifyCallbacks");
+                                       GLES20.glBindTexture(GL_TEXTURE_2D, 0);
+                                   }
+                               });
+                           }
+                           
+                           private byte[] createNV21Data(VideoFrame.I420Buffer i420Buffer) {
+                                   final int width = i420Buffer.getWidth();
+                                   final int height = i420Buffer.getHeight();
+                                   final int chromaStride = width;
+                                   final int chromaWidth = (width + 1) / 2;
+                                   final int chromaHeight = (height + 1) / 2;
+                                   final int ySize = width * height;
+                                   final ByteBuffer nv21Buffer = ByteBuffer.allocateDirect(ySize + chromaStride * chromaHeight);
+                                   // We don't care what the array offset is since we only want an array that is direct.
+                                   @SuppressWarnings("ByteBufferBackingArray")
+                                   final byte[] nv21Data = nv21Buffer.array();
+                                   for (int y = 0; y &lt; height; ++y) {
+                                       for (int x = 0; x &lt; width; ++x) {
+                                           final byte yValue = i420Buffer.getDataY().get(y * i420Buffer.getStrideY() + x);
+                                           nv21Data[y * width + x] = yValue;
+                                       }
+                                   }
+
+                                   for (int y = 0; y &lt; chromaHeight; ++y) {
+                                       for (int x = 0; x &lt; chromaWidth; ++x) {
+                                           final byte uValue = i420Buffer.getDataU().get(y * i420Buffer.getStrideU() + x);
+                                           final byte vValue = i420Buffer.getDataV().get(y * i420Buffer.getStrideV() + x);
+                                           nv21Data[ySize + y * chromaStride + 2 * x + 0] = vValue;
+                                           nv21Data[ySize + y * chromaStride + 2 * x + 1] = uValue;
+                                       }
+                                   }
+
+                                   return nv21Data;
+                               }
+                               
+                
+            
+  Object cameraLock = new Object();
+  int deviceID = -1;
+    int textureID = 0;
+    int width, height, targetFps;
+    boolean initialized = false;
+    SurfaceTexture surfaceTexture;
+
+    Camera camera;
+    boolean previewing = false;
+
+    public native boolean nativeGetFrameData(int frameWidth, int frameHeight, byte[] data);
+
+
+    public boolean isCameraPermissionGranted() {
+
+        return true;
+    }
+
+
+    public void AndroidThunkJava_Toast() {
+        try {
+            _activity.runOnUiThread(new Runnable() {
+                public void run() {
+                    Toast.makeText(_activity.getApplicationContext(), "cam o yeah!", Toast.LENGTH_SHORT).show();
+                }
+            });
+        } catch (Exception e) {
+            Log.debug("Toast failed with exception " + e.getMessage());
+        }
+    }
+
+    public void AndroidThunkJava_setDeviceID(int _deviceId) {
+        deviceID = _deviceId;
+    }
+
+    public boolean AndroidThunkJava_startCamera(int w, int h, int _targetFps, int _texID) {
+    
+        if (!isCameraPermissionGranted()) {
+            textureID = _texID;
+            width = w;
+            height = h;
+            targetFps = _targetFps;
+            return false;
+        }
+
+        //textureID = _texID;
+        
+        textureIDSariska = _texID;
+        _texID = 0;
+        textureID = 0;
+        System.out.println("Hey Dipak, this is the tex id: "+ textureIDSariska);
+        
+        if(_texID != 0){
+            if(weHaveLocalTracks){
+                System.out.println("Hey Dipak, this is the tex id: "+ textureIDSariska);
+            }
+        }
+        
+        
+        synchronized(cameraLock) {
+          surfaceTexture = new SurfaceTexture(_texID);
+          surfaceTexture.setDefaultBufferSize(w, h);
+
+          if (deviceID == -1)
+              deviceID = AndroidThunkJava_getCameraFacing(0);
+
+          try {
+              if (Build.VERSION.SDK_INT &gt;= 9) {
+                  camera = Camera.open(deviceID);
+              } else {
+                  camera = Camera.open();
+              }
+          } catch (Exception e) {
+              android.util.Log.e("AndroidCamera", "Error trying to open specific camera, trying default", e);
+              camera = Camera.open();
+          }
+
+
+          Parameters cameraParam = camera.getParameters();
+          float smallestDist = 99999999.0f;
+          int bestW = 0, bestH = 0;
+          
+
+          android.util.Log.i("AndroidCamera", "Grabber supported sizes");
+          for (Size s : cameraParam.getSupportedPreviewSizes()) {
+              android.util.Log.i("AndroidCamera", s.width + " " + s.height);
+          }
+
+           for (Size s : cameraParam.getSupportedPreviewSizes()) {
+                
+                  if( s.width == w &amp;&amp; s.height == h ){
+                    bestW = w;
+                    bestH = h;
+                    break;
+                }
+                float dist = PointF.length(w - s.width, h - s.height);
+                if( dist &lt; smallestDist ){
+                    smallestDist = dist;
+                    bestW = s.width;
+                    bestH = s.height;
+                }
+          }
+
+          if ( bestW != 0 &amp;&amp; bestH != 0 ){
+               if( bestW != w || bestH != h ){
+                   android.util.Log.w("AndroidCamera", "requested width and height ("  + Integer.toString(w) + "," + Integer.toString(h) + ")  aren't supported. Setting capture size to closest match: " + Integer.toString(bestW) + "," + Integer.toString(bestH) + ")");
+                   w = bestW;
+                   h = bestH;
+               }
+
+          }
+
+          boolean nvSupported = false;
+
+          android.util.Log.i("AndroidCamera", "Grabber supported formats");
+          for (Integer i : cameraParam.getSupportedPreviewFormats()) {
+              android.util.Log.i("AndroidCamera", i.toString());
+              if ( i == ImageFormat.NV21) nvSupported = true;
+          }
+
+          if  ( !nvSupported) {
+               android.util.Log.i("AndroidCamera", "NV21 is not supported by this device");
+               camera = null;
+               return false;
+          }
+
+          android.util.Log.i("AndroidCamera", "Grabber supported fps");
+          for (Integer i : cameraParam.getSupportedPreviewFrameRates()) {
+              android.util.Log.i("AndroidCamera", i.toString());
+          }
+
+          android.util.Log.i("AndroidCamera", "Grabber default format: " + cameraParam.getPreviewFormat());
+          android.util.Log.i("AndroidCamera", "Grabber default preview size: " + cameraParam.getPreviewSize().width + "," + cameraParam.getPreviewSize().height);
+
+          cameraParam.setPreviewFormat(ImageFormat.NV21);
+          //cameraParam.setPictureSize(w, h);
+          cameraParam.setPreviewSize(w, h);
+
+          try {
+              Method setRecordingHint = cameraParam.getClass().getMethod("setRecordingHint", boolean.class);
+              setRecordingHint.invoke(cameraParam, true);
+          } catch (Exception e) {
+              android.util.Log.i("AndroidCamera", "couldn't set recording hint");
+          }
+
+          camera.setParameters(cameraParam);
+
+          cameraParam = camera.getParameters();
+          width = cameraParam.getPreviewSize().width;
+          height = cameraParam.getPreviewSize().height;
+          if (width != w || height != h)
+              android.util.Log.w("AndroidCamera", "camera size different than asked for, resizing (this can slow the app) (" + Integer.toString(width) + "," + Integer.toString(height) + "), (" + Integer.toString(w) + "," + Integer.toString(h) + ")");
+
+          targetFps = _targetFps;
+
+          // If target fps is not defined, then take the maximum fps
+          if (targetFps == -1) {
+              for (Integer i : cameraParam.getSupportedPreviewFrameRates()) {
+                  if (targetFps &lt; i) {
+                      targetFps = i;
+                  }
+              }
+          }
+
+          android.util.Log.i("AndroidCamera", "Started preview callback width size: " + Integer.toString(width) + "," + Integer.toString(height));
+
+          camera.setPreviewCallback(new PreviewCallback() {
+              @Override
+              public void onPreviewFrame(byte[] data, Camera camera) {
+          if ( !initialized ) return;
+              synchronized(cameraLock) {
+                      if (camera != null) {
+                          try {
+                              int Height = camera.getParameters().getPreviewSize().height;
+                              int Width = camera.getParameters().getPreviewSize().width;
+                              nativeGetFrameData(Width, Height, data);
+                          } catch (Exception ex) {
+                        android.util.Log.i("AndroidCamera", "Error getting the parameters");
+                          }
+                      }
+          }
+              }
+          });
+
+          if (surfaceTexture != null) {
+              try {
+                  camera.setPreviewTexture(surfaceTexture);
+              } catch (IOException t) {
+                  android.util.Log.e("AndroidCamera", "Cannot set preview texture target!", t);
+              }
+              previewing = true;
+              camera.startPreview();
+          }
+
+          initialized = true;
+          return true;
+    }
+    }
+
+    public void AndroidThunkJava_stopCamera() {
+        initialized = false;
+        synchronized(cameraLock) {
+            if (camera != null) {
+                camera.setPreviewCallback(null);
+                camera.stopPreview();
+                try {
+                    camera.setPreviewTexture(null);
+                } catch (Exception ex) {
+                }
+
+                surfaceTexture.release();
+                surfaceTexture = null;
+
+                camera.release();
+                camera = null;
+            }
+    }
+    }
+
+    public int AndroidThunkJava_getCameraFacing(int facing) {
+        if (Build.VERSION.SDK_INT &lt; 9) {
+            return 0;
+        }
+
+        int numCameras = Camera.getNumberOfCameras();
+        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
+        for (int i = 0; i &lt; numCameras; i++) {
+            Camera.getCameraInfo(i, cameraInfo);
+            int _facing = cameraInfo.facing;
+            if (_facing == facing) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    public int AndroidThunkJava_getNumCameras() {
+        if (Build.VERSION.SDK_INT &lt; 9) {
+            return 1;
+        }
+
+        return Camera.getNumberOfCameras();
+    }
+
+    public int AndroidThunkJava_getFacingOfCamera(int _deviceID) {
+        if (android.os.Build.VERSION.SDK_INT &lt; 9) {
+            return 0;
+        }
+
+        if (_deviceID == -1) _deviceID = deviceID;
+
+        Camera.CameraInfo info = new Camera.CameraInfo();
+        Camera.getCameraInfo(_deviceID, info);
+        return info.facing;
+    }
+
+    public int AndroidThunkJava_getWidth() {
+        return width;
+    }
+
+    public int AndroidThunkJava_getHeight() {
+        return height;
+    }
+        </insert>
+    </gameActivityClassAdditions>
+
+    <!-- optional additions to GameActivity onCreate in GameActivity.java -->
+    <gameActivityOnCreateAdditions>
+        <insert>
+            
+            if (!hasPermissions(this, PERMISSIONS)) {
+                        ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_ALL);
+            }
+            
+            SariskaMediaTransport.initializeSdk(getApplication());
+            System.out.println("Sariska Initialized");
+            this.setupLocalStream();
+            String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiI3YWY2ZXdsNCIsImF2YXRhciI6IiM3QjAxRDEiLCJuYW1lIjoic2RzZCJ9LCJncm91cCI6IjEifSwic3ViIjoidWF0bmNvZTV2NzJsbm9obG53Z3F2OCIsInJvb20iOiIqIiwiaWF0IjoxNjU0NTM2Mjk0LCJuYmYiOjE2NTQ1MzYyOTQsImlzcyI6InNhcmlza2EiLCJhdWQiOiJtZWRpYV9tZXNzYWdpbmdfY28tYnJvd3NpbmciLCJleHAiOjE2NTQ3MDkwOTR9.BiofxQMSJJB9LUO2fJtRXae43s3HECvtsnpzMfWDfYies7f9dz6TrUU__N8twPzhQgomo3gbV8RN6kraS_1gDbROvUPc3M-mF1-ejsjLV5Sg04jlcFk32pQGoui07WfT1HFUHsDJw67ylRjRe9NNtcO1PzmArqr_JvJ7F7U4cIqgsJpk51lwL2OHEHAvkdBXDIuzYBKezl7sjARZHf00OdljmNTucBZYL02gowjFn3zFva7Eq38opRI6Q_mYrhVvRrcFHGhqSrN_v57boIcB5zOqNRQnkHD-2oyqpzpoB7ydVwPzfsMY6sNmNgxHahxiZgJ6WlGMRaZ7CwI8SjV4xA";
+            
+            connection = SariskaMediaTransport.JitsiConnection(token, "dipak", false);
+            connection.addEventListener("CONNECTION_ESTABLISHED", this::createConference);
+            connection.addEventListener("CONNECTION_FAILED", () -> {
+                    });
+                    connection.addEventListener("CONNECTION_DISCONNECTED", () -> {
+                    });
+                    connection.connect();
+
+            
+        </insert>
+    </gameActivityOnCreateAdditions>
+
+
+</root>
