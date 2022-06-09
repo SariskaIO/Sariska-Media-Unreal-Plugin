@@ -21,7 +21,7 @@
                         }
             }
             dependencies {
-                implementation 'io.sariska:sariska-media-transport:5.2.4'
+                implementation 'io.sariska:sariska-media-transport:5.2.1-exp'
             }
             
         </insert>
@@ -63,7 +63,7 @@
 <!--    </gradleProperties>-->
     
     <resourceCopies>
-                  <copyFile src="$S(ProjectDir)/Plugins/WebCameraFeed/Source/WebCameraFeed/stringsariskas.xml"
+                  <copyFile src="$S(ProjectDir)/Plugins/Sariska-Media-Unreal-Plugin/Source/WebCameraFeed/stringsariskas.xml"
                             dst="$S(BuildDir)/res/values/stringsariskas.xml" />
     </resourceCopies>
     
@@ -74,11 +74,6 @@
 import android.os.Build;
 import java.lang.reflect.Method;
 import android.widget.Toast;
-import android.hardware.Camera;
-import android.hardware.Camera.Size;
-import android.hardware.Camera.CameraInfo;
-import android.hardware.Camera.Parameters;
-import android.hardware.Camera.PreviewCallback;
 import android.graphics.SurfaceTexture;
 import android.graphics.ImageFormat;
 import android.graphics.PixelFormat;
@@ -185,16 +180,42 @@ import io.sariska.sdk.SariskaMediaTransport;
                 
             
             public void setupLocalStream() {
-                    Bundle options = new Bundle();
-                    options.putBoolean("audio", true);
-                    options.putBoolean("video", true);
-                    options.putInt("resolution", 360);  // 180, 240, 360, 720, 1080
-                    SariskaMediaTransport.createLocalTracks(options, tracks -> {
-                        runOnUiThread(() -> {
-                            //localTracks = tracks;
-                        });
-                    });
-                }
+                       Bundle options = new Bundle();
+                       options.putBoolean("audio", true);
+                       options.putBoolean("video", true);
+                       options.putInt("resolution", 360);  // 180, 240, 360, 720, 1080
+                       SariskaMediaTransport.createLocalTracks(options, tracks ->{
+                       _activity.runOnUiThread(() -> {
+                           System.out.println("Where are we 1");
+                           localTracks = tracks;
+                           System.out.println("Where are we 2");
+                           for (JitsiLocalTrack track: localTracks){
+                               System.out.println("Where are we 3");
+                               if(track.getType().equals("video")){
+                                   System.out.println("Where are we 4");
+                                   WebRTCView view = track.render();
+                                   System.out.println("Where are we 5");
+                                   view.setMirror(true);
+                                   System.out.println("Where are we 6");
+                                   localVideoTrack = view.getVideoTrackForStreamURL(track.getStreamURL());
+                                   System.out.println("Where are we 7");
+                                   localVideoTrack.setEnabled(true);
+                                   System.out.println("Where are we 8");
+                                   localVideoTrack.addSink(new VideoSink() {
+                                       @RequiresApi(api = Build.VERSION_CODES.O)
+                                       @Override
+                                       public void onFrame(VideoFrame videoFrame) {
+                                       VideoFrame.I420Buffer i420Buffer = videoFrame.getBuffer().toI420();
+                                       final int width = i420Buffer.getWidth();
+                                       final int height = i420Buffer.getHeight();
+                                       byte[] nv21Data = createNV21Data(i420Buffer);
+                                       nativeGetFrameData(width, height, nv21Data); 
+                                           System.out.println("Where are we 9");
+                                       }
+                                   });
+                               }
+                           }
+                       });});}
                 
                 public boolean hasPermissions(GameActivity context, String... permissions) {
                             for (String permission : permissions) {
@@ -208,13 +229,11 @@ import io.sariska.sdk.SariskaMediaTransport;
                 public void createConference() {
                 System.out.println("We are in createConference");
                 
-                                conference = connection.initJitsiConference();
+                conference = connection.initJitsiConference();
 
-                                conference.addEventListener("CONFERENCE_JOINED", () -> {
-                                    
-                                });
-
-                                conference.addEventListener("DOMINANT_SPEAKER_CHANGED", p -> {
+                conference.addEventListener("CONFERENCE_JOINED", () -> {});
+                
+                conference.addEventListener("DOMINANT_SPEAKER_CHANGED", p -> {
                                     String id = (String) p;
                                     conference.selectParticipant(id);
                                 });
@@ -379,271 +398,49 @@ import io.sariska.sdk.SariskaMediaTransport;
 
                                    return nv21Data;
                                }
-                               
-                
-            
-  Object cameraLock = new Object();
-  int deviceID = -1;
-    int textureID = 0;
-    int width, height, targetFps;
-    boolean initialized = false;
-    SurfaceTexture surfaceTexture;
-
-    Camera camera;
-    boolean previewing = false;
 
     public native boolean nativeGetFrameData(int frameWidth, int frameHeight, byte[] data);
 
 
     public boolean isCameraPermissionGranted() {
-
         return true;
     }
 
 
     public void AndroidThunkJava_Toast() {
-        try {
-            _activity.runOnUiThread(new Runnable() {
-                public void run() {
-                    Toast.makeText(_activity.getApplicationContext(), "cam o yeah!", Toast.LENGTH_SHORT).show();
-                }
-            });
-        } catch (Exception e) {
-            Log.debug("Toast failed with exception " + e.getMessage());
-        }
+        //Do nothing
     }
 
     public void AndroidThunkJava_setDeviceID(int _deviceId) {
-        deviceID = _deviceId;
+        //Do nothing
     }
 
     public boolean AndroidThunkJava_startCamera(int w, int h, int _targetFps, int _texID) {
-    
-        if (!isCameraPermissionGranted()) {
-            textureID = _texID;
-            width = w;
-            height = h;
-            targetFps = _targetFps;
-            return false;
-        }
-
-        //textureID = _texID;
-        
-        textureIDSariska = _texID;
-        _texID = 0;
-        textureID = 0;
-        System.out.println("Hey Dipak, this is the tex id: "+ textureIDSariska);
-        
-        if(_texID != 0){
-            if(weHaveLocalTracks){
-                System.out.println("Hey Dipak, this is the tex id: "+ textureIDSariska);
-            }
-        }
-        
-        
-        synchronized(cameraLock) {
-          surfaceTexture = new SurfaceTexture(_texID);
-          surfaceTexture.setDefaultBufferSize(w, h);
-
-          if (deviceID == -1)
-              deviceID = AndroidThunkJava_getCameraFacing(0);
-
-          try {
-              if (Build.VERSION.SDK_INT &gt;= 9) {
-                  camera = Camera.open(deviceID);
-              } else {
-                  camera = Camera.open();
-              }
-          } catch (Exception e) {
-              android.util.Log.e("AndroidCamera", "Error trying to open specific camera, trying default", e);
-              camera = Camera.open();
-          }
-
-
-          Parameters cameraParam = camera.getParameters();
-          float smallestDist = 99999999.0f;
-          int bestW = 0, bestH = 0;
-          
-
-          android.util.Log.i("AndroidCamera", "Grabber supported sizes");
-          for (Size s : cameraParam.getSupportedPreviewSizes()) {
-              android.util.Log.i("AndroidCamera", s.width + " " + s.height);
-          }
-
-           for (Size s : cameraParam.getSupportedPreviewSizes()) {
-                
-                  if( s.width == w &amp;&amp; s.height == h ){
-                    bestW = w;
-                    bestH = h;
-                    break;
-                }
-                float dist = PointF.length(w - s.width, h - s.height);
-                if( dist &lt; smallestDist ){
-                    smallestDist = dist;
-                    bestW = s.width;
-                    bestH = s.height;
-                }
-          }
-
-          if ( bestW != 0 &amp;&amp; bestH != 0 ){
-               if( bestW != w || bestH != h ){
-                   android.util.Log.w("AndroidCamera", "requested width and height ("  + Integer.toString(w) + "," + Integer.toString(h) + ")  aren't supported. Setting capture size to closest match: " + Integer.toString(bestW) + "," + Integer.toString(bestH) + ")");
-                   w = bestW;
-                   h = bestH;
-               }
-
-          }
-
-          boolean nvSupported = false;
-
-          android.util.Log.i("AndroidCamera", "Grabber supported formats");
-          for (Integer i : cameraParam.getSupportedPreviewFormats()) {
-              android.util.Log.i("AndroidCamera", i.toString());
-              if ( i == ImageFormat.NV21) nvSupported = true;
-          }
-
-          if  ( !nvSupported) {
-               android.util.Log.i("AndroidCamera", "NV21 is not supported by this device");
-               camera = null;
-               return false;
-          }
-
-          android.util.Log.i("AndroidCamera", "Grabber supported fps");
-          for (Integer i : cameraParam.getSupportedPreviewFrameRates()) {
-              android.util.Log.i("AndroidCamera", i.toString());
-          }
-
-          android.util.Log.i("AndroidCamera", "Grabber default format: " + cameraParam.getPreviewFormat());
-          android.util.Log.i("AndroidCamera", "Grabber default preview size: " + cameraParam.getPreviewSize().width + "," + cameraParam.getPreviewSize().height);
-
-          cameraParam.setPreviewFormat(ImageFormat.NV21);
-          //cameraParam.setPictureSize(w, h);
-          cameraParam.setPreviewSize(w, h);
-
-          try {
-              Method setRecordingHint = cameraParam.getClass().getMethod("setRecordingHint", boolean.class);
-              setRecordingHint.invoke(cameraParam, true);
-          } catch (Exception e) {
-              android.util.Log.i("AndroidCamera", "couldn't set recording hint");
-          }
-
-          camera.setParameters(cameraParam);
-
-          cameraParam = camera.getParameters();
-          width = cameraParam.getPreviewSize().width;
-          height = cameraParam.getPreviewSize().height;
-          if (width != w || height != h)
-              android.util.Log.w("AndroidCamera", "camera size different than asked for, resizing (this can slow the app) (" + Integer.toString(width) + "," + Integer.toString(height) + "), (" + Integer.toString(w) + "," + Integer.toString(h) + ")");
-
-          targetFps = _targetFps;
-
-          // If target fps is not defined, then take the maximum fps
-          if (targetFps == -1) {
-              for (Integer i : cameraParam.getSupportedPreviewFrameRates()) {
-                  if (targetFps &lt; i) {
-                      targetFps = i;
-                  }
-              }
-          }
-
-          android.util.Log.i("AndroidCamera", "Started preview callback width size: " + Integer.toString(width) + "," + Integer.toString(height));
-
-          camera.setPreviewCallback(new PreviewCallback() {
-              @Override
-              public void onPreviewFrame(byte[] data, Camera camera) {
-          if ( !initialized ) return;
-              synchronized(cameraLock) {
-                      if (camera != null) {
-                          try {
-                              int Height = camera.getParameters().getPreviewSize().height;
-                              int Width = camera.getParameters().getPreviewSize().width;
-                              nativeGetFrameData(Width, Height, data);
-                          } catch (Exception ex) {
-                        android.util.Log.i("AndroidCamera", "Error getting the parameters");
-                          }
-                      }
-          }
-              }
-          });
-
-          if (surfaceTexture != null) {
-              try {
-                  camera.setPreviewTexture(surfaceTexture);
-              } catch (IOException t) {
-                  android.util.Log.e("AndroidCamera", "Cannot set preview texture target!", t);
-              }
-              previewing = true;
-              camera.startPreview();
-          }
-
-          initialized = true;
-          return true;
-    }
+        return false;
     }
 
     public void AndroidThunkJava_stopCamera() {
-        initialized = false;
-        synchronized(cameraLock) {
-            if (camera != null) {
-                camera.setPreviewCallback(null);
-                camera.stopPreview();
-                try {
-                    camera.setPreviewTexture(null);
-                } catch (Exception ex) {
-                }
-
-                surfaceTexture.release();
-                surfaceTexture = null;
-
-                camera.release();
-                camera = null;
-            }
-    }
+       //do nothing
     }
 
     public int AndroidThunkJava_getCameraFacing(int facing) {
-        if (Build.VERSION.SDK_INT &lt; 9) {
-            return 0;
-        }
-
-        int numCameras = Camera.getNumberOfCameras();
-        Camera.CameraInfo cameraInfo = new Camera.CameraInfo();
-        for (int i = 0; i &lt; numCameras; i++) {
-            Camera.getCameraInfo(i, cameraInfo);
-            int _facing = cameraInfo.facing;
-            if (_facing == facing) {
-                return i;
-            }
-        }
-        return -1;
+      return 1;
     }
 
     public int AndroidThunkJava_getNumCameras() {
-        if (Build.VERSION.SDK_INT &lt; 9) {
-            return 1;
-        }
-
-        return Camera.getNumberOfCameras();
+      return 1;
     }
 
     public int AndroidThunkJava_getFacingOfCamera(int _deviceID) {
-        if (android.os.Build.VERSION.SDK_INT &lt; 9) {
-            return 0;
-        }
-
-        if (_deviceID == -1) _deviceID = deviceID;
-
-        Camera.CameraInfo info = new Camera.CameraInfo();
-        Camera.getCameraInfo(_deviceID, info);
-        return info.facing;
+       return 1;
     }
 
     public int AndroidThunkJava_getWidth() {
-        return width;
+        return 1;
     }
 
     public int AndroidThunkJava_getHeight() {
-        return height;
+        return 1;
     }
         </insert>
     </gameActivityClassAdditions>
@@ -656,7 +453,7 @@ import io.sariska.sdk.SariskaMediaTransport;
                         ActivityCompat.requestPermissions(this, PERMISSIONS, PERMISSION_ALL);
             }
             
-            SariskaMediaTransport.initializeSdk(getApplication());
+            SariskaMediaTransport.initializeSdk(_activity.getApplication());
             System.out.println("Sariska Initialized");
             this.setupLocalStream();
             String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiI3YWY2ZXdsNCIsImF2YXRhciI6IiM3QjAxRDEiLCJuYW1lIjoic2RzZCJ9LCJncm91cCI6IjEifSwic3ViIjoidWF0bmNvZTV2NzJsbm9obG53Z3F2OCIsInJvb20iOiIqIiwiaWF0IjoxNjU0NTM2Mjk0LCJuYmYiOjE2NTQ1MzYyOTQsImlzcyI6InNhcmlza2EiLCJhdWQiOiJtZWRpYV9tZXNzYWdpbmdfY28tYnJvd3NpbmciLCJleHAiOjE2NTQ3MDkwOTR9.BiofxQMSJJB9LUO2fJtRXae43s3HECvtsnpzMfWDfYies7f9dz6TrUU__N8twPzhQgomo3gbV8RN6kraS_1gDbROvUPc3M-mF1-ejsjLV5Sg04jlcFk32pQGoui07WfT1HFUHsDJw67ylRjRe9NNtcO1PzmArqr_JvJ7F7U4cIqgsJpk51lwL2OHEHAvkdBXDIuzYBKezl7sjARZHf00OdljmNTucBZYL02gowjFn3zFva7Eq38opRI6Q_mYrhVvRrcFHGhqSrN_v57boIcB5zOqNRQnkHD-2oyqpzpoB7ydVwPzfsMY6sNmNgxHahxiZgJ6WlGMRaZ7CwI8SjV4xA";
