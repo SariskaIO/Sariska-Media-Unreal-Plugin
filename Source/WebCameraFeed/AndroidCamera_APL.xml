@@ -150,26 +150,20 @@ import io.sariska.sdk.SariskaMediaTransport;
             private List&lt;JitsiLocalTrack&gt; localTracks;
             private boolean weHaveLocalTracks = false;
             private final ExecutorService mRenderThreadLocal = Executors.newSingleThreadExecutor();
-                private final ExecutorService mRenderThreadRemote = Executors.newFixedThreadPool(2);
-                private volatile EGLContext mSharedEglContext;
-                private volatile EGLConfig mSharedEglConfig;
-                private int mTextureID;
-                private int mRemoteTextureId;
-                private int mTextureWidth;
-                private int mTextureHeight;
-                private String token;
-                private String roomName;
-                private static final String TAG = "JavaPlugin";
-            
-                private VideoTrack localVideoTrack;
-                private VideoTrack remoteVideoTrack;
-                private Context context;
-                
-                private EGLDisplay mEGLDisplay = EGL14.EGL_NO_DISPLAY;
-                   private EGLContext mEglContext = EGL14.EGL_NO_CONTEXT;
-                   private EGLSurface mEglSurface = EGL14.EGL_NO_SURFACE;
-
-
+            private final ExecutorService mRenderThreadRemote = Executors.newFixedThreadPool(2);
+            private volatile EGLContext mSharedEglContext;
+            private volatile EGLConfig mSharedEglConfig;
+            private int mTextureID;
+            private int mRemoteTextureId;
+            private int mTextureWidth;
+            private int mTextureHeight;
+            private String token;
+            private String roomName;
+            private static final String TAG = "JavaPlugin";
+        
+            private VideoTrack localVideoTrack;
+            private VideoTrack remoteVideoTrack;
+            private Context context;
             
             String[] PERMISSIONS = {
                         android.Manifest.permission.CAMERA,
@@ -192,15 +186,10 @@ import io.sariska.sdk.SariskaMediaTransport;
                            for (JitsiLocalTrack track: localTracks){
                                System.out.println("Where are we 3");
                                if(track.getType().equals("video")){
-                                   System.out.println("Where are we 4");
                                    WebRTCView view = track.render();
-                                   System.out.println("Where are we 5");
                                    view.setMirror(true);
-                                   System.out.println("Where are we 6");
                                    localVideoTrack = view.getVideoTrackForStreamURL(track.getStreamURL());
-                                   System.out.println("Where are we 7");
                                    localVideoTrack.setEnabled(true);
-                                   System.out.println("Where are we 8");
                                    localVideoTrack.addSink(new VideoSink() {
                                        @RequiresApi(api = Build.VERSION_CODES.O)
                                        @Override
@@ -209,8 +198,7 @@ import io.sariska.sdk.SariskaMediaTransport;
                                        final int width = i420Buffer.getWidth();
                                        final int height = i420Buffer.getHeight();
                                        byte[] nv21Data = createNV21Data(i420Buffer);
-                                       nativeGetFrameData(width, height, nv21Data); 
-                                           System.out.println("Where are we 9");
+                                       //nativeGetFrameData(width, height, nv21Data);
                                        }
                                    });
                                }
@@ -227,148 +215,62 @@ import io.sariska.sdk.SariskaMediaTransport;
                 }
                 
                 public void createConference() {
-                System.out.println("We are in createConference");
+               
+                    conference = connection.initJitsiConference();
+                    conference.addEventListener("CONFERENCE_JOINED", () -> {
+                        for (JitsiLocalTrack track : localTracks) {
+                            conference.addTrack(track);
+                        }
+                    });
                 
-                conference = connection.initJitsiConference();
+                    conference.addEventListener("DOMINANT_SPEAKER_CHANGED", p -> {
+                        String id = (String) p;
+                        conference.selectParticipant(id);
+                    });
+                                
+                    conference.addEventListener("CONFERENCE_LEFT", () -> {});
 
-                conference.addEventListener("CONFERENCE_JOINED", () -> {});
-                
-                conference.addEventListener("DOMINANT_SPEAKER_CHANGED", p -> {
-                                    String id = (String) p;
-                                    conference.selectParticipant(id);
-                                });
-                                conference.addEventListener("CONFERENCE_LEFT", () -> {
-                                });
+                    conference.addEventListener("TRACK_ADDED", p -> {
+                        JitsiRemoteTrack track = (JitsiRemoteTrack) p;
+                        if(track.getStreamURL().equals(localTracks.get(1).getStreamURL())){
+                            //So as to not add local track in remote container
+                            return;
+                        }
+                        _activity.runOnUiThread(() -> {
+                        if (track.getType().equals("video")) {
+                        WebRTCView view = track.render();
+                        view.setMirror(true);
+                        remoteVideoTrack = view.getVideoTrackForStreamURL(track.getStreamURL());
+                        remoteVideoTrack.setEnabled(true);
+                        remoteVideoTrack.addSink(new VideoSink() {
+                            @RequiresApi(api = Build.VERSION_CODES.O)
+                            @Override
+                            public void onFrame(VideoFrame videoFrame) {
+                            VideoFrame.I420Buffer i420Buffer = videoFrame.getBuffer().toI420();
+                            final int width = i420Buffer.getWidth();
+                            final int height = i420Buffer.getHeight();
+                            byte[] nv21Data = createNV21Data(i420Buffer);
+                            nativeGetFrameData(width, height, nv21Data);
+                            System.out.println("Where are we 9");
+                            }
+                        });
+                        }
+                    });
+                });
 
-                                conference.addEventListener("TRACK_ADDED", p -> {
-                                    JitsiRemoteTrack track = (JitsiRemoteTrack) p;
-                                    runOnUiThread(() -> {
-                                        if (track.getType().equals("video")) {
-                                            //Do nothing for now
-                                        }
-                                    });
-                                });
-
-                                conference.addEventListener("TRACK_REMOVED", p -> {
-                                    JitsiRemoteTrack track = (JitsiRemoteTrack) p;
-                                    runOnUiThread(() -> {
-                                        //
-                                    });
-                                });
+                    conference.addEventListener("TRACK_REMOVED", p -> {
+                        JitsiRemoteTrack track = (JitsiRemoteTrack) p;
+                        runOnUiThread(() -> {
+                            //
+                        });
+                    });
                                 
                                 conference.join();
                                 System.out.println("We are past createConference");
-                }
-                
-                public void setupOpenGL()
-                    {
-                        //Get eglcontext and egldisplay of the unity thread
-                        mSharedEglContext = EGL14.eglGetCurrentContext();
-                        if (mSharedEglContext == EGL14.EGL_NO_CONTEXT) {
-                            
-                        }
-                        EGLDisplay sharedEglDisplay = EGL14.eglGetCurrentDisplay();
-                        if (sharedEglDisplay == EGL14.EGL_NO_DISPLAY) {
-                           
-                        }
-
-                        //Gets the eglconfig of the unity drawing thread
-                        int[] numEglConfigs = new int[1];
-                        EGLConfig[] eglConfigs = new EGLConfig[1];
-                        if (!EGL14.eglGetConfigs(sharedEglDisplay, eglConfigs, 0,
-                                eglConfigs.length,numEglConfigs, 0)) {
-                            
-                        }
-
-                        mSharedEglConfig = eglConfigs[0];
-                        mRenderThreadLocal.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                //Java thread initializes OpenGL environment
-                                try {
-                                    initOpenGL();
-                                } catch (Exception e) {
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
-
-                        mRenderThreadRemote.execute(new Runnable() {
-                            @Override
-                            public void run() {
-                                try{
-                                    initOpenGL();
-                                }catch (Exception e){
-                                    e.printStackTrace();
-                                }
-                            }
-                        });
                     }
+
                     
-                    private void initOpenGL() throws Exception {
-                           mEGLDisplay = EGL14.eglGetDisplay(EGL14.EGL_DEFAULT_DISPLAY);
-                           if (mEGLDisplay == EGL14.EGL_NO_DISPLAY) {
-                               
-                           }
-                           int[] version = new int[2];
-                           if (!EGL14.eglInitialize(mEGLDisplay, version, 0, version, 1)) {
-                               
-                           }
-                           int[] eglContextAttribList = new int[]{
-                                   EGL14.EGL_CONTEXT_CLIENT_VERSION, 2, // the version should be consistent with that used by unity
-                                   EGL14.EGL_NONE
-                           };
-
-                           //Pass eglcontext and eglconfig of unity thread as parameters to eglcreatecontext,
-                           //Create the eglcontext of the java thread, so that two threads can share the eglcontext
-                           mEglContext = EGL14.eglCreateContext(
-                                   mEGLDisplay, mSharedEglConfig, mSharedEglContext,
-                                   eglContextAttribList, 0);
-                           if (mEglContext == EGL14.EGL_NO_CONTEXT) {
-                              
-                           }
-
-                           int[] surfaceAttribList = {
-                                   EGL14.EGL_WIDTH, 64,
-                                   EGL14.EGL_HEIGHT, 64,
-                                   EGL14.EGL_NONE
-                           };
-
-                           //The java thread does not actually paint, so it creates a pbuffersurface instead of a windowsurface
-                           //Pass the eglconfig of the unity thread as a parameter to eglcreatepuffersurface
-                           //Create eglsurface for java thread
-                           mEglSurface = EGL14.eglCreatePbufferSurface(mEGLDisplay, mSharedEglConfig, surfaceAttribList, 0);
-                           if (mEglSurface == EGL14.EGL_NO_SURFACE) {
-                               
-                           }
-                           if (!EGL14.eglMakeCurrent(mEGLDisplay, mEglSurface, mEglSurface, mEglContext)) {
-                               try{
-                                   EGL14.eglMakeCurrent(mEGLDisplay, mEglSurface, mEglSurface, mEglContext);
-                               }catch (Exception e){
-                                   throw new Exception(e);
-                               }
-                           }
-                           GLES20.glFlush();
-                       }
-                       
-                       public void updateBufferLocalStream(int textureIdLocal, ByteBuffer buffer, int width, int height){
-                               mRenderThreadLocal.execute(new Runnable() {
-                                   @Override
-                                   public void run() {
-                                       GLES20.glBindTexture(GL_TEXTURE_2D, textureIdLocal);
-                                       GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_NEAREST);
-                                       GLES20.glTexParameteri(GLES11Ext.GL_TEXTURE_EXTERNAL_OES, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_NEAREST);
-                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_S, GLES20.GL_CLAMP_TO_EDGE);
-                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_WRAP_T, GLES20.GL_CLAMP_TO_EDGE);
-                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_MAG_FILTER, GLES20.GL_LINEAR);
-                                       GLES20.glTexParameteri(GL_TEXTURE_2D, GLES20.GL_TEXTURE_MIN_FILTER, GLES20.GL_LINEAR);
-                                       GLES20.glTexImage2D(GL_TEXTURE_2D,0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
-                                       GlUtil.checkNoGLES2Error("EglRenderer.notifyCallbacks");
-                                       GLES20.glBindTexture(GL_TEXTURE_2D, 0);
-                                   }
-                               });
-                           }
-                           
+                   
                            private byte[] createNV21Data(VideoFrame.I420Buffer i420Buffer) {
                                    final int width = i420Buffer.getWidth();
                                    final int height = i420Buffer.getHeight();
@@ -395,7 +297,6 @@ import io.sariska.sdk.SariskaMediaTransport;
                                            nv21Data[ySize + y * chromaStride + 2 * x + 1] = uValue;
                                        }
                                    }
-
                                    return nv21Data;
                                }
 
@@ -456,15 +357,17 @@ import io.sariska.sdk.SariskaMediaTransport;
             SariskaMediaTransport.initializeSdk(_activity.getApplication());
             System.out.println("Sariska Initialized");
             this.setupLocalStream();
-            String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiI3YWY2ZXdsNCIsImF2YXRhciI6IiM3QjAxRDEiLCJuYW1lIjoic2RzZCJ9LCJncm91cCI6IjEifSwic3ViIjoidWF0bmNvZTV2NzJsbm9obG53Z3F2OCIsInJvb20iOiIqIiwiaWF0IjoxNjU0NTM2Mjk0LCJuYmYiOjE2NTQ1MzYyOTQsImlzcyI6InNhcmlza2EiLCJhdWQiOiJtZWRpYV9tZXNzYWdpbmdfY28tYnJvd3NpbmciLCJleHAiOjE2NTQ3MDkwOTR9.BiofxQMSJJB9LUO2fJtRXae43s3HECvtsnpzMfWDfYies7f9dz6TrUU__N8twPzhQgomo3gbV8RN6kraS_1gDbROvUPc3M-mF1-ejsjLV5Sg04jlcFk32pQGoui07WfT1HFUHsDJw67ylRjRe9NNtcO1PzmArqr_JvJ7F7U4cIqgsJpk51lwL2OHEHAvkdBXDIuzYBKezl7sjARZHf00OdljmNTucBZYL02gowjFn3zFva7Eq38opRI6Q_mYrhVvRrcFHGhqSrN_v57boIcB5zOqNRQnkHD-2oyqpzpoB7ydVwPzfsMY6sNmNgxHahxiZgJ6WlGMRaZ7CwI8SjV4xA";
+            String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiJ1d2VvcG94dyIsImF2YXRhciI6IiNEMjJFOUIiLCJuYW1lIjoiRGlwYWtVbnJlYWwifSwiZ3JvdXAiOiIxIn0sInN1YiI6InVhdG5jb2U1djcybG5vaGxud2dxdjgiLCJyb29tIjoiKiIsImlhdCI6MTY1NDg2OTQwOCwibmJmIjoxNjU0ODY5NDA4LCJpc3MiOiJzYXJpc2thIiwiYXVkIjoibWVkaWFfbWVzc2FnaW5nX2NvLWJyb3dzaW5nIiwiZXhwIjoxNjU1MDQyMjA4fQ.siDx-s3L8OtE-ly-Crnf1uTKwKuHNoh7gBQb5oO3jGaC3YsvbQqIbacSbnss_iBWH1pj_1cbvqDAB-JEANzq9N3XjrwmIf3CFjZ7zZZUiYsWNf8Zgma1lVWGT1tvMfowsVdLfwyjaZt-wO05Qzd9NTdGPzzttLKTdDfVQ2wKWNI6fJ_IfJRSCyI4zJsXutXdw_-zEXL2x7IzbYk168arVl6YhJg10uRilcyrO6nPeLVhEU0SDHV0o8bpp_jtNntourjFmQK55b1mCVjathsp7GSrDng_XQPy7_nQNO_ZJYI0IKW-1MRErqW0jEE_hrVEPAtm_ezyYFaqPHk7hRh3eA";
             
             connection = SariskaMediaTransport.JitsiConnection(token, "dipak", false);
+            
             connection.addEventListener("CONNECTION_ESTABLISHED", this::createConference);
-            connection.addEventListener("CONNECTION_FAILED", () -> {
-                    });
-                    connection.addEventListener("CONNECTION_DISCONNECTED", () -> {
-                    });
-                    connection.connect();
+            
+            connection.addEventListener("CONNECTION_FAILED", () -> {});
+            
+            connection.addEventListener("CONNECTION_DISCONNECTED", () -> {});
+            
+            connection.connect();
 
             
         </insert>
