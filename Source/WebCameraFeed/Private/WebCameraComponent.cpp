@@ -3,10 +3,8 @@
 #include "WebCameraComponent.h"
 #include "VideoGrabberPool.h"
 
-#include "AndroidVideoRemote.h"
 
 UTexture* remoteTexturePointer;
-
 // Sets default values for this component's properties
 UWebCameraComponent::UWebCameraComponent()
 {
@@ -33,15 +31,11 @@ void UWebCameraComponent::BeginPlay()
 	}
 
 	if (DeviceId.selectedDevice < 0) DeviceId.selectedDevice = 0;
-
-	currentVideoGrabber = VideoGrabberPool::GetVideoGrabber(DeviceId.selectedDevice, requestedWidth, requestedHeight, MirroredVideo);
     
-#if PLATFORM_ANDROID
-    AndroidVideoRemote* remoteVideoInstance = AndroidVideoRemote::get_instance();
-    remoteVideoInstance->allocateDataRemote(640,480,PF_B8G8R8A8);
-    remoteVideoInstance->setup(640,480,false);
-    remoteTexturePointer = remoteVideoInstance->returnTexture();
-#endif
+	currentVideoGrabber = VideoGrabberPool::GetVideoGrabber(DeviceId.selectedDevice, requestedWidth, requestedHeight, MirroredVideo);
+        
+    
+    remoteVideoGrabber = VideoGrabberPool::GetVideoGrabberRemote(42, requestedWidth, requestedHeight, MirroredVideo);
 	
 }
 
@@ -81,8 +75,14 @@ UTexture* UWebCameraComponent::GetTexture() {
 
 UTexture* UWebCameraComponent::GetTextureRemote() {
 #if PLATFORM_ANDROID
-    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "Called Get Set Go");
-    return remoteTexturePointer;
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "Called Get Remote Texture");
+#endif
+    if ( remoteVideoGrabber.IsValid()) {
+        return remoteVideoGrabber->getTexture();
+    }
+    
+#if PLATFORM_ANDROID
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "Remote Texture is invalid");
 #endif
     return nullptr;
 }

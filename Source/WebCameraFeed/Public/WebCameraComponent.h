@@ -7,6 +7,7 @@
 #include "WebCameraDevice.h"
 #include <Engine/Texture2D.h>
 #include "VideoGrabber.h"
+#include "VideoGrabberRemote.h"
 #include "WebCameraComponent.generated.h"
 
 UCLASS( ClassGroup=(WebCamera), meta=(BlueprintSpawnableComponent), Config=Game )
@@ -31,7 +32,7 @@ public:
 	UTexture* GetTexture();
     
     UFUNCTION(Category = WebCamera, BlueprintCallable)
-    static UTexture* GetTextureRemote();
+    UTexture* GetTextureRemote();
     
     UFUNCTION(Category = WebCamera, BlueprintCallable)
     void AfterTriggerFunction();
@@ -69,4 +70,8 @@ public:
 
 private:
 	TSharedPtr<VideoGrabber> currentVideoGrabber;
+    
+    TSharedPtr<VideoGrabberRemote> remoteVideoGrabber;
+    
+    FRWLock  frwLock;
 };

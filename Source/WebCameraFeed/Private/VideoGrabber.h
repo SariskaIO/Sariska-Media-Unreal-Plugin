@@ -17,5 +17,6 @@
 
 #if PLATFORM_ANDROID
 	#include "AndroidVideoGrabber.h"
+
 	typedef AndroidVideoGrabber VideoGrabber;
 #endif

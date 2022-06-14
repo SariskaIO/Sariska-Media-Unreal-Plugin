@@ -33,6 +33,34 @@ TSharedPtr<VideoGrabber>  VideoGrabberPool::GetVideoGrabber ( int device, int wi
 	return GetInstance()->GetVideoGrabberInternal(device, widh, height, mirrored);
 }
 
+TSharedPtr<VideoGrabberRemote> VideoGrabberPool::GetVideoGrabberRemote ( int device, int widh, int height, bool mirrored ) {
+    return GetInstance()->GetVideoGrabberInternalRemote(device, widh, height, mirrored);
+}
+
+
+TSharedPtr<VideoGrabberRemote> VideoGrabberPool::GetVideoGrabberInternalRemote ( int device, int widh, int height, bool mirrored ) {
+    frwLock.ReadLock();
+    if ( videoGrabbersRemote.Contains(device) ) {
+        frwLock.ReadUnlock();
+        frwLock.WriteLock();
+        videoGrabberReferences[device]++;
+        frwLock.WriteUnlock();
+        return videoGrabbersRemote[device];
+    }else{
+        frwLock.ReadUnlock();
+        frwLock.WriteLock();
+        TSharedPtr<VideoGrabberRemote>  videoGrabberRemote ( new VideoGrabberRemote());
+        videoGrabberRemote->setDeviceID(device);
+        if ( videoGrabberRemote->setup(widh, height, mirrored) ) {
+            videoGrabbersRemote.Add(device, videoGrabberRemote);
+            videoGrabberReferences.Add(device, 1);
+        } else {
+            videoGrabberRemote = nullptr;
+        }
+        frwLock.WriteUnlock();
+        return videoGrabberRemote;
+    }
+}
 
 TSharedPtr<VideoGrabber> VideoGrabberPool::GetVideoGrabberInternal ( int device, int widh, int height, bool mirrored ) {
 	frwLock.ReadLock();
