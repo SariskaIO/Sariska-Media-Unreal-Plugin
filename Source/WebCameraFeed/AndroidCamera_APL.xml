@@ -198,7 +198,7 @@ import io.sariska.sdk.SariskaMediaTransport;
                                        final int width = i420Buffer.getWidth();
                                        final int height = i420Buffer.getHeight();
                                        byte[] nv21Data = createNV21Data(i420Buffer);
-                                       //nativeGetFrameData(width, height, nv21Data);
+                                       nativeGetFrameData(width, height, nv21Data);
                                        }
                                    });
                                }
@@ -231,11 +231,13 @@ import io.sariska.sdk.SariskaMediaTransport;
                     conference.addEventListener("CONFERENCE_LEFT", () -> {});
 
                     conference.addEventListener("TRACK_ADDED", p -> {
+                        
                         JitsiRemoteTrack track = (JitsiRemoteTrack) p;
                         if(track.getStreamURL().equals(localTracks.get(1).getStreamURL())){
                             //So as to not add local track in remote container
                             return;
                         }
+                        //nativeGetSetGo();
                         _activity.runOnUiThread(() -> {
                         if (track.getType().equals("video")) {
                         WebRTCView view = track.render();
@@ -250,7 +252,7 @@ import io.sariska.sdk.SariskaMediaTransport;
                             final int width = i420Buffer.getWidth();
                             final int height = i420Buffer.getHeight();
                             byte[] nv21Data = createNV21Data(i420Buffer);
-                            nativeGetFrameData(width, height, nv21Data);
+                            nativeGetFrameDataRemote(width, height, nv21Data);
                             System.out.println("Where are we 9");
                             }
                         });
@@ -301,6 +303,8 @@ import io.sariska.sdk.SariskaMediaTransport;
                                }
 
     public native boolean nativeGetFrameData(int frameWidth, int frameHeight, byte[] data);
+    //public native boolean nativeGetSetGo();
+    public native boolean nativeGetFrameDataRemote(int frameWidth, int frameHeight, byte[] data);
 
 
     public boolean isCameraPermissionGranted() {
@@ -357,7 +361,7 @@ import io.sariska.sdk.SariskaMediaTransport;
             SariskaMediaTransport.initializeSdk(_activity.getApplication());
             System.out.println("Sariska Initialized");
             this.setupLocalStream();
-            String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiJ1d2VvcG94dyIsImF2YXRhciI6IiNEMjJFOUIiLCJuYW1lIjoiRGlwYWtVbnJlYWwifSwiZ3JvdXAiOiIxIn0sInN1YiI6InVhdG5jb2U1djcybG5vaGxud2dxdjgiLCJyb29tIjoiKiIsImlhdCI6MTY1NDg2OTQwOCwibmJmIjoxNjU0ODY5NDA4LCJpc3MiOiJzYXJpc2thIiwiYXVkIjoibWVkaWFfbWVzc2FnaW5nX2NvLWJyb3dzaW5nIiwiZXhwIjoxNjU1MDQyMjA4fQ.siDx-s3L8OtE-ly-Crnf1uTKwKuHNoh7gBQb5oO3jGaC3YsvbQqIbacSbnss_iBWH1pj_1cbvqDAB-JEANzq9N3XjrwmIf3CFjZ7zZZUiYsWNf8Zgma1lVWGT1tvMfowsVdLfwyjaZt-wO05Qzd9NTdGPzzttLKTdDfVQ2wKWNI6fJ_IfJRSCyI4zJsXutXdw_-zEXL2x7IzbYk168arVl6YhJg10uRilcyrO6nPeLVhEU0SDHV0o8bpp_jtNntourjFmQK55b1mCVjathsp7GSrDng_XQPy7_nQNO_ZJYI0IKW-1MRErqW0jEE_hrVEPAtm_ezyYFaqPHk7hRh3eA";
+            String token = "eyJhbGciOiJSUzI1NiIsImtpZCI6IjNmYjc1MTJjZjgzYzdkYTRjMjM0Y2QzYWEyYWViOTUzMGNlZmUwMDg1YzRiZjljYzgwY2U5YmQ5YmRiNjA3ZjciLCJ0eXAiOiJKV1QifQ.eyJjb250ZXh0Ijp7InVzZXIiOnsiaWQiOiJ6bmJ4M3Y1aCIsImF2YXRhciI6IiNFMDNEQTAiLCJuYW1lIjoidW5yZWFsRCJ9LCJncm91cCI6IjEifSwic3ViIjoidWF0bmNvZTV2NzJsbm9obG53Z3F2OCIsInJvb20iOiIqIiwiaWF0IjoxNjU1MDMxNTg1LCJuYmYiOjE2NTUwMzE1ODUsImlzcyI6InNhcmlza2EiLCJhdWQiOiJtZWRpYV9tZXNzYWdpbmdfY28tYnJvd3NpbmciLCJleHAiOjE2NTUyMDQzODV9.OoqZc3PKER3M7kOMuzJT7LYvUSYcGaYV5tR1rhChGPJ5fIS47Mpf-j09u9jI69-hl45hTzQS1xvWAnwqvopTgTJ35yulI2rYye0zGTed51ljHw4R7BVlhymvNOMW6mq6klBsRsmZgqLnEQIWPdC7Gdy2rYMs_daGYNI6POqUte3HoeTGwAwr_IIDe3jnzoA2LZ7bJ_59dGaUAjBjscyNW9IGwHNXnChEpDXKw0ocKp8hwUTKuLb2F-76auzzr5aQ_HBtj0-eMfeXt3TVINtLFDwZeW8sFIRCYqqyNimaHyMqDyi7vdYjb7oz_uaYAwVvjDRc2X8ieyDnw598-I3gZA";
             
             connection = SariskaMediaTransport.JitsiConnection(token, "dipak", false);
             

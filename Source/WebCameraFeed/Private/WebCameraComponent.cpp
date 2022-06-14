@@ -3,6 +3,9 @@
 #include "WebCameraComponent.h"
 #include "VideoGrabberPool.h"
 
+#include "AndroidVideoRemote.h"
+
+UTexture* remoteTexturePointer;
 
 // Sets default values for this component's properties
 UWebCameraComponent::UWebCameraComponent()
@@ -32,6 +35,13 @@ void UWebCameraComponent::BeginPlay()
 	if (DeviceId.selectedDevice < 0) DeviceId.selectedDevice = 0;
 
 	currentVideoGrabber = VideoGrabberPool::GetVideoGrabber(DeviceId.selectedDevice, requestedWidth, requestedHeight, MirroredVideo);
+    
+#if PLATFORM_ANDROID
+    AndroidVideoRemote* remoteVideoInstance = AndroidVideoRemote::get_instance();
+    remoteVideoInstance->allocateDataRemote(640,480,PF_B8G8R8A8);
+    remoteVideoInstance->setup(640,480,false);
+    remoteTexturePointer = remoteVideoInstance->returnTexture();
+#endif
 	
 }
 
@@ -68,6 +78,21 @@ UTexture* UWebCameraComponent::GetTexture() {
 	}
 	return nullptr;
 }
+
+UTexture* UWebCameraComponent::GetTextureRemote() {
+#if PLATFORM_ANDROID
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "Called Get Set Go");
+    return remoteTexturePointer;
+#endif
+    return nullptr;
+}
+
+void UWebCameraComponent::AfterTriggerFunction(){
+#if PLATFORM_ANDROID
+    __android_log_print(ANDROID_LOG_VERBOSE, LOG_TAG, "Called After Trigger");
+#endif
+}
+
 
 
 void  UWebCameraComponent::SetDeviceId(int id) {

@@ -211,7 +211,8 @@ void AndroidVideoGrabber::loadTexture() {
 	glTexParameterf(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameterf(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameterf(GL_TEXTURE_EXTERNAL_OES, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    
+    
 
 	glDisable(GL_TEXTURE_EXTERNAL_OES);
 
@@ -491,7 +492,6 @@ extern "C" bool Java_com_epicgames_ue4_GameActivity_nativeGetFrameData(JNIEnv* L
 			currentGrabber->updatePixelsCB(currentFrame, frameWidth, frameHeight);
 			LocalJNIEnv->ReleaseByteArrayElements(data, (jbyte*)currentFrame, 0);
 		}
-		
 	} 
 	return JNI_TRUE;
 }

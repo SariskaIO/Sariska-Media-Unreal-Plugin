@@ -9,7 +9,6 @@
 #include "VideoGrabber.h"
 #include "WebCameraComponent.generated.h"
 
-
 UCLASS( ClassGroup=(WebCamera), meta=(BlueprintSpawnableComponent), Config=Game )
 class WEBCAMERAFEED_API UWebCameraComponent : public USceneComponent
 {
@@ -30,6 +29,12 @@ public:
 
 	UFUNCTION(Category = WebCamera, BlueprintCallable)
 	UTexture* GetTexture();
+    
+    UFUNCTION(Category = WebCamera, BlueprintCallable)
+    static UTexture* GetTextureRemote();
+    
+    UFUNCTION(Category = WebCamera, BlueprintCallable)
+    void AfterTriggerFunction();
     
     UPROPERTY(EditAnywhere, Category = WebCamera, Config)
     bool MirroredVideo;
@@ -64,5 +69,4 @@ public:
 
 private:
 	TSharedPtr<VideoGrabber> currentVideoGrabber;
-	
 };
